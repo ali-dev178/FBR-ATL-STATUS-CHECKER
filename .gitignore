@@ -1,0 +1,7 @@
+node_modules/
+*.png
+eng.traineddata
+captcha_temp.*
+*_results.xlsx
+output.xlsx
+.claude/
