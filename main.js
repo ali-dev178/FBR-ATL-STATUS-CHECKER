@@ -1,19 +1,48 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { generatePreview } = require('./engine/detect');
 const { AutomationEngine } = require('./engine/AutomationEngine');
+const { SharedResources } = require('./engine/SharedResources');
 
 let mainWindow = null;
-let engine = null;
-let captchaResolve = null;
-let updateInterval = null;
-let latestProgress = null;
-let recentLogs = [];
+
+// ─── State Persistence ──────────────────────────────────────────
+function getStateFilePath() {
+  return path.join(app.getPath('userData'), 'tab-state.json');
+}
+
+function saveState(state) {
+  try {
+    fs.writeFileSync(getStateFilePath(), JSON.stringify(state, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to save state:', err.message);
+  }
+}
+
+function loadState() {
+  try {
+    const filePath = getStateFilePath();
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const state = JSON.parse(raw);
+    // Basic validation
+    if (!state || !Array.isArray(state.tabs)) return null;
+    return state;
+  } catch (err) {
+    console.error('Failed to load state:', err.message);
+    return null;
+  }
+}
+
+const sharedResources = new SharedResources();
+const tabs = new Map(); // tabId -> { engine, captchaResolve, updateInterval, latestProgress, recentLogs }
+let nextTabId = 1;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 960,
+    height: 750,
     minWidth: 800,
     minHeight: 600,
     title: 'FBR ATL Status Checker',
@@ -32,12 +61,41 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', async () => {
-  if (engine) await engine.destroy().catch(() => {});
-  if (updateInterval) clearInterval(updateInterval);
+  for (const [tabId, tab] of tabs) {
+    if (tab.engine) await tab.engine.destroy().catch(() => {});
+    if (tab.updateInterval) clearInterval(tab.updateInterval);
+  }
+  tabs.clear();
+  await sharedResources.destroy().catch(() => {});
   app.quit();
 });
 
-// ─── IPC: File Picker ──────────────────────────────────────────────────────
+// ─── IPC: Tab Management ──────────────────────────────────────────
+
+ipcMain.handle('create-tab', () => {
+  const tabId = nextTabId++;
+  tabs.set(tabId, {
+    engine: null,
+    captchaResolve: null,
+    updateInterval: null,
+    latestProgress: null,
+    recentLogs: [],
+  });
+  return tabId;
+});
+
+ipcMain.on('close-tab', async (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (!tab) return;
+  if (tab.engine) {
+    tab.engine.stop();
+    await tab.engine.destroy().catch(() => {});
+  }
+  if (tab.updateInterval) clearInterval(tab.updateInterval);
+  tabs.delete(tabId);
+});
+
+// ─── IPC: File Picker ─────────────────────────────────────────────
 
 ipcMain.handle('pick-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -49,7 +107,16 @@ ipcMain.handle('pick-file', async () => {
   return result.filePaths[0];
 });
 
-// ─── IPC: Preview ──────────────────────────────────────────────────────────
+ipcMain.handle('pick-directory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Output Directory',
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+// ─── IPC: Preview ─────────────────────────────────────────────────
 
 ipcMain.handle('preview-file', async (_, filePath) => {
   try {
@@ -59,44 +126,40 @@ ipcMain.handle('preview-file', async (_, filePath) => {
   }
 });
 
-// ─── IPC: Start Processing ─────────────────────────────────────────────────
+// ─── IPC: State Persistence ──────────────────────────────────────
 
-ipcMain.on('start', async (_, options) => {
-  if (engine) await engine.destroy().catch(() => {});
+ipcMain.on('save-state', (_, state) => {
+  saveState(state);
+});
 
-  const outputFile = options.filePath.replace(/\.xlsx$/i, '_results.xlsx');
+ipcMain.handle('load-state', () => {
+  return loadState();
+});
 
-  engine = new AutomationEngine({
-    inputFile: options.filePath,
-    outputFile,
-    headless: options.headless,
-    cnicCol: options.cnicCol,
-    atlCol: options.atlCol,
-  });
+// ─── Engine Listener Setup ────────────────────────────────────────
 
-  recentLogs = [];
-  latestProgress = null;
+function setupEngineListeners(tabId, tab) {
+  const engine = tab.engine;
 
-  // Listen to engine events
   engine.on('progress', (data) => {
-    latestProgress = data;
+    tab.latestProgress = data;
   });
 
   engine.on('log', (data) => {
-    recentLogs.push(data);
-    // Keep only last 50 logs
-    if (recentLogs.length > 50) recentLogs.shift();
+    tab.recentLogs.push(data);
+    if (tab.recentLogs.length > 50) tab.recentLogs.shift();
   });
 
   engine.on('row-start', (data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update', {
+        tabId,
         eventType: 'row-start',
         srNo: data.srNo,
         buyerName: data.buyerName,
         cnicNtn: data.cnicNtn,
         lookupType: data.type,
-        progress: latestProgress,
+        progress: tab.latestProgress,
       });
     }
   });
@@ -104,81 +167,144 @@ ipcMain.on('start', async (_, options) => {
   engine.on('row-complete', (data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update', {
+        tabId,
         eventType: 'row-complete',
         srNo: data.srNo,
         cnicNtn: data.cnicNtn,
         status: data.status,
         cached: data.cached,
-        progress: latestProgress,
+        progress: tab.latestProgress,
       });
     }
   });
 
   engine.on('captcha-manual', (data) => {
-    captchaResolve = data.resolve;
+    tab.captchaResolve = data.resolve;
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('captcha-required', { imageBase64: data.imageBase64 });
+      mainWindow.webContents.send('captcha-required', { tabId, imageBase64: data.imageBase64 });
     }
   });
 
   engine.on('done', (data) => {
-    if (updateInterval) { clearInterval(updateInterval); updateInterval = null; }
+    if (tab.updateInterval) { clearInterval(tab.updateInterval); tab.updateInterval = null; }
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('processing-done', data);
+      mainWindow.webContents.send('processing-done', { tabId, ...data });
     }
   });
 
   engine.on('error', (data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('error', data);
+      mainWindow.webContents.send('error', { tabId, ...data });
     }
   });
 
   // Batched updates every 2 seconds
-  updateInterval = setInterval(() => {
-    if (mainWindow && !mainWindow.isDestroyed() && latestProgress) {
-      const logs = recentLogs.splice(0, recentLogs.length);
+  tab.updateInterval = setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && tab.latestProgress) {
+      const logs = tab.recentLogs.splice(0, tab.recentLogs.length);
       mainWindow.webContents.send('update', {
+        tabId,
         eventType: 'tick',
-        progress: latestProgress,
+        progress: tab.latestProgress,
         logs,
       });
     }
   }, 2000);
+}
 
-  engine.start();
+// ─── IPC: Start Processing ────────────────────────────────────────
+
+ipcMain.on('start', async (_, { tabId, ...options }) => {
+  const tab = tabs.get(tabId);
+  if (!tab) return;
+  if (tab.engine) await tab.engine.destroy().catch(() => {});
+
+  tab.engine = new AutomationEngine({
+    tabId,
+    sharedResources,
+    inputFile: options.filePath,
+    outputFile: options.outputFile,
+    headless: options.headless,
+    cnicCol: options.cnicCol,
+    atlCol: options.atlCol,
+  });
+
+  tab.recentLogs = [];
+  tab.latestProgress = null;
+
+  setupEngineListeners(tabId, tab);
+  tab.engine.start();
 });
 
-// ─── IPC: Controls ─────────────────────────────────────────────────────────
+// ─── IPC: Controls ────────────────────────────────────────────────
 
-ipcMain.on('pause', () => { if (engine) engine.pause(); });
-ipcMain.on('resume', () => { if (engine) engine.resume(); });
-ipcMain.on('stop', async () => {
-  if (engine) {
-    engine.stop();
-    if (updateInterval) { clearInterval(updateInterval); updateInterval = null; }
+ipcMain.on('pause', (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (tab && tab.engine) tab.engine.pause();
+});
+
+ipcMain.on('resume', (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (tab && tab.engine) tab.engine.resume();
+});
+
+ipcMain.on('stop', async (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (tab && tab.engine) {
+    tab.engine.stop();
+    if (tab.updateInterval) { clearInterval(tab.updateInterval); tab.updateInterval = null; }
   }
 });
 
-ipcMain.on('show-browser', async () => { if (engine) await engine.showBrowser(); });
-
-ipcMain.on('captcha-response', (_, text) => {
-  if (captchaResolve) {
-    captchaResolve(text);
-    captchaResolve = null;
+ipcMain.on('show-browser', async () => {
+  const newPages = await sharedResources.switchToVisible();
+  // Update each engine's page reference
+  for (const [tabId, page] of newPages) {
+    const tab = tabs.get(tabId);
+    if (tab && tab.engine) {
+      tab.engine.page = page;
+    }
   }
 });
 
-ipcMain.on('retry-na', async () => { if (engine) engine.retryNARows(); });
-
-ipcMain.on('open-output', () => {
-  if (engine && engine.outputFile) {
-    shell.openPath(engine.outputFile);
+ipcMain.on('captcha-response', (_, { tabId, text }) => {
+  const tab = tabs.get(tabId);
+  if (tab && tab.captchaResolve) {
+    tab.captchaResolve(text);
+    tab.captchaResolve = null;
   }
 });
 
-ipcMain.on('new-file', async () => {
-  if (engine) await engine.destroy().catch(() => {});
-  engine = null;
-  if (updateInterval) { clearInterval(updateInterval); updateInterval = null; }
+ipcMain.on('retry-na', async (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (!tab || !tab.engine) return;
+
+  tab.recentLogs = [];
+  tab.latestProgress = null;
+
+  // Re-setup the update interval (old one was cleared on done)
+  if (tab.updateInterval) clearInterval(tab.updateInterval);
+  tab.updateInterval = setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && tab.latestProgress) {
+      const logs = tab.recentLogs.splice(0, tab.recentLogs.length);
+      mainWindow.webContents.send('update', { tabId, eventType: 'tick', progress: tab.latestProgress, logs });
+    }
+  }, 2000);
+
+  tab.engine.retryNARows();
+});
+
+ipcMain.on('open-output', (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (tab && tab.engine && tab.engine.outputFile) {
+    shell.openPath(tab.engine.outputFile);
+  }
+});
+
+ipcMain.on('new-file', async (_, { tabId }) => {
+  const tab = tabs.get(tabId);
+  if (!tab) return;
+  if (tab.engine) await tab.engine.destroy().catch(() => {});
+  tab.engine = null;
+  if (tab.updateInterval) { clearInterval(tab.updateInterval); tab.updateInterval = null; }
 });

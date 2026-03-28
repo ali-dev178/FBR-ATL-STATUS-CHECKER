@@ -54,8 +54,9 @@ class OutputWorkbook {
     const data = fs.readFileSync(this.outputPath);
     const zip = await JSZip.loadAsync(data);
 
-    // Find the sheet XML (usually xl/worksheets/sheet1.xml)
-    const sheetPath = 'xl/worksheets/sheet1.xml';
+    // Find the first sheet XML dynamically
+    const sheetFiles = Object.keys(zip.files).filter(f => /^xl\/worksheets\/sheet\d+\.xml$/i.test(f)).sort();
+    const sheetPath = sheetFiles[0] || 'xl/worksheets/sheet1.xml';
     let sheetXml = await zip.file(sheetPath).async('string');
 
     for (const { excelRow, atlCol, status } of writes) {

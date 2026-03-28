@@ -26,17 +26,126 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: var(--bg);
   color: var(--text);
-  padding: 20px;
   min-height: 100vh;
   overflow-y: auto;
 }
 
-section { display: none; }
-body[data-screen="setup"] #setup { display: block; }
-body[data-screen="processing"] #processing { display: block; }
-body[data-screen="done"] #done { display: block; }
-
 .hidden { display: none !important; }
+
+/* ─── Tab Bar ─── */
+#tabBar {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+  border-bottom: 2px solid var(--border);
+  padding: 0 8px;
+  height: 42px;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+#tabList {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  -webkit-app-region: no-drag;
+}
+
+.tab-btn {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 180px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover { background: rgba(255,255,255,0.04); }
+
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--success);
+  background: rgba(0, 184, 148, 0.06);
+}
+
+.tab-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tab-status-setup { background: var(--text-dim); }
+.tab-status-processing { background: var(--success); animation: pulse 1.5s infinite; }
+.tab-status-done { background: var(--cached-blue); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  font-size: 15px;
+  opacity: 0.3;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.tab-close:hover { opacity: 1; color: var(--danger); }
+
+.tab-rename-input {
+  background: var(--bg);
+  border: 1px solid var(--success);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 1px 4px;
+  width: 100px;
+  outline: none;
+}
+
+#btnAddTab {
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+#btnAddTab:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+/* ─── Tab Content ─── */
+#tabContent { padding: 20px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ─── Screens ─── */
+.screen { /* default hidden via inline style in template */ }
 
 /* ─── Header ─── */
 .header { text-align: center; margin-bottom: 20px; }
@@ -90,7 +199,8 @@ body[data-screen="done"] #done { display: block; }
 .btn-large { width: 100%; padding: 14px; font-size: 16px; margin-top: 10px; }
 
 /* ─── File Picker ─── */
-.file-row { display: flex; gap: 10px; }
+.file-row { display: flex; gap: 10px; align-items: center; }
+.btn-clear-file { padding: 8px 12px; font-size: 16px; line-height: 1; }
 .file-row input {
   flex: 1;
   background: var(--bg);

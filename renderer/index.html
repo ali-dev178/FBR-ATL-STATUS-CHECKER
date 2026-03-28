@@ -6,111 +6,18 @@
   <title>FBR ATL Status Checker</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body data-screen="setup">
+<body>
 
-  <!-- ─── SETUP SCREEN ─────────────────────────────────────────────── -->
-  <section id="setup">
-    <div class="header">
-      <h1>FBR ATL Status Checker</h1>
-      <p class="subtitle">Active Taxpayer List Verification</p>
-    </div>
+  <!-- ─── TAB BAR ─────────────────────────────────────────────────── -->
+  <div id="tabBar">
+    <div id="tabList"></div>
+    <button id="btnAddTab" title="New Tab">+</button>
+  </div>
 
-    <div class="card file-picker">
-      <label>Input File</label>
-      <div class="file-row">
-        <input type="text" id="filePath" placeholder="Select an Excel file..." readonly>
-        <button id="btnBrowse" class="btn btn-primary">Browse</button>
-      </div>
-    </div>
+  <!-- ─── TAB CONTENT CONTAINER ───────────────────────────────────── -->
+  <div id="tabContent"></div>
 
-    <!-- Hidden until file is loaded -->
-    <div id="previewSection" class="hidden">
-      <div class="card">
-        <label>Auto-Detected Columns</label>
-        <div class="column-selectors">
-          <div class="selector-group">
-            <span>Read Column (CNIC/NTN):</span>
-            <select id="cnicColSelect"></select>
-          </div>
-          <div class="selector-group">
-            <span>Write Column (ATL Status):</span>
-            <select id="atlColSelect"></select>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <label>Detection Summary</label>
-        <div class="stats-row" id="detectionStats"></div>
-      </div>
-
-      <div class="card">
-        <label>Sample Data</label>
-        <div class="table-wrapper">
-          <table id="previewTable">
-            <thead><tr><th>Sr</th><th>Name</th><th>CNIC/NTN</th><th>Type</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <label>Browser Mode</label>
-        <div class="toggle-row">
-          <button id="btnVisible" class="toggle-btn">Visible</button>
-          <button id="btnBackground" class="toggle-btn active">Background (Faster)</button>
-        </div>
-      </div>
-
-      <button id="btnStart" class="btn btn-success btn-large">Start Processing</button>
-    </div>
-  </section>
-
-  <!-- ─── PROCESSING SCREEN ────────────────────────────────────────── -->
-  <section id="processing">
-    <div class="header">
-      <h1>Processing...</h1>
-    </div>
-
-    <div class="card">
-      <div class="progress-container">
-        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
-      </div>
-      <div class="progress-text">
-        <span id="progressText">0 / 0 (0%)</span>
-        <span id="progressEta"></span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="current-row" id="currentRow">Waiting to start...</div>
-      <div class="last-result" id="lastResult"></div>
-    </div>
-
-    <div class="card">
-      <div class="stats-grid">
-        <div class="stat-box stat-active"><div class="stat-num" id="statActive">0</div><div class="stat-label">Active</div></div>
-        <div class="stat-box stat-inactive"><div class="stat-num" id="statInactive">0</div><div class="stat-label">Inactive</div></div>
-        <div class="stat-box stat-na"><div class="stat-num" id="statNA">0</div><div class="stat-label">N/A</div></div>
-        <div class="stat-box stat-cached"><div class="stat-num" id="statCached">0</div><div class="stat-label">Cached</div></div>
-        <div class="stat-box stat-lookups"><div class="stat-num" id="statLookups">0</div><div class="stat-label">Lookups</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <label>Log</label>
-      <div class="log-box" id="logBox"></div>
-    </div>
-
-    <div class="controls">
-      <button id="btnPause" class="btn btn-warning">Pause</button>
-      <button id="btnResume" class="btn btn-primary hidden">Resume</button>
-      <button id="btnStop" class="btn btn-danger">Stop</button>
-      <button id="btnShowBrowser" class="btn btn-secondary">Show Browser</button>
-    </div>
-  </section>
-
-  <!-- ─── CAPTCHA POPUP ────────────────────────────────────────────── -->
+  <!-- ─── CAPTCHA POPUP (global) ──────────────────────────────────── -->
   <div id="captchaOverlay" class="overlay hidden">
     <div class="overlay-content">
       <h3>Manual Captcha Required</h3>
@@ -123,40 +30,157 @@
     </div>
   </div>
 
-  <!-- ─── DONE SCREEN ──────────────────────────────────────────────── -->
-  <section id="done">
-    <div class="header">
-      <h1>Processing Complete!</h1>
-    </div>
+  <!-- ─── TAB TEMPLATE ────────────────────────────────────────────── -->
+  <template id="tabTemplate">
+    <div class="tab-pane">
 
-    <div class="card">
-      <div class="progress-container">
-        <div class="progress-bar" style="width: 100%"></div>
+      <!-- SETUP SCREEN -->
+      <div class="screen screen-setup">
+        <div class="header">
+          <h1>FBR ATL Status Checker</h1>
+          <p class="subtitle">Active Taxpayer List Verification</p>
+        </div>
+
+        <div class="card file-picker">
+          <label>Input File</label>
+          <div class="file-row">
+            <input type="text" class="file-path" placeholder="Select an Excel file..." readonly>
+            <button class="btn btn-primary btn-browse">Browse</button>
+            <button class="btn btn-danger btn-clear-file hidden" title="Remove file">&times;</button>
+          </div>
+        </div>
+
+        <div class="preview-section hidden">
+          <div class="card">
+            <label>Auto-Detected Columns</label>
+            <div class="column-selectors">
+              <div class="selector-group">
+                <span>Read Column (CNIC/NTN):</span>
+                <select class="cnic-col-select"></select>
+              </div>
+              <div class="selector-group">
+                <span>Write Column (ATL Status):</span>
+                <select class="atl-col-select"></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Output File</label>
+            <div class="file-row">
+              <input type="text" class="output-path" placeholder="Output file path...">
+              <button class="btn btn-secondary btn-change-output-dir" title="Change output directory">Folder</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Detection Summary</label>
+            <div class="stats-row detection-stats"></div>
+          </div>
+
+          <div class="card">
+            <label>Sample Data</label>
+            <div class="table-wrapper">
+              <table class="preview-table">
+                <thead><tr><th>Sr</th><th>Name</th><th>CNIC/NTN</th><th>Type</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Browser Mode</label>
+            <div class="toggle-row">
+              <button class="toggle-btn btn-visible">Visible</button>
+              <button class="toggle-btn btn-background active">Background (Faster)</button>
+            </div>
+          </div>
+
+          <button class="btn btn-success btn-large btn-start">Start Processing</button>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="stats-grid">
-        <div class="stat-box stat-active"><div class="stat-num" id="doneActive">0</div><div class="stat-label">Active</div></div>
-        <div class="stat-box stat-inactive"><div class="stat-num" id="doneInactive">0</div><div class="stat-label">Inactive</div></div>
-        <div class="stat-box stat-na"><div class="stat-num" id="doneNA">0</div><div class="stat-label">N/A</div></div>
-        <div class="stat-box stat-cached"><div class="stat-num" id="doneCached">0</div><div class="stat-label">Cached</div></div>
-        <div class="stat-box stat-lookups"><div class="stat-num" id="doneLookups">0</div><div class="stat-label">Lookups</div></div>
+      <!-- PROCESSING SCREEN -->
+      <div class="screen screen-processing" style="display:none">
+        <div class="header">
+          <h1>Processing...</h1>
+        </div>
+
+        <div class="card">
+          <div class="progress-container">
+            <div class="progress-bar" style="width: 0%"></div>
+          </div>
+          <div class="progress-text">
+            <span class="progress-text-val">0 / 0 (0%)</span>
+            <span class="progress-eta">--</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="current-row">Waiting to start...</div>
+          <div class="last-result"></div>
+        </div>
+
+        <div class="card">
+          <div class="stats-grid">
+            <div class="stat-box stat-active"><div class="stat-num stat-active-num">0</div><div class="stat-label">Active</div></div>
+            <div class="stat-box stat-inactive"><div class="stat-num stat-inactive-num">0</div><div class="stat-label">Inactive</div></div>
+            <div class="stat-box stat-na"><div class="stat-num stat-na-num">0</div><div class="stat-label">N/A</div></div>
+            <div class="stat-box stat-cached"><div class="stat-num stat-cached-num">0</div><div class="stat-label">Cached</div></div>
+            <div class="stat-box stat-lookups"><div class="stat-num stat-lookups-num">0</div><div class="stat-label">Lookups</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <label>Log</label>
+          <div class="log-box"></div>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn-warning btn-pause">Pause</button>
+          <button class="btn btn-primary btn-resume hidden">Resume</button>
+          <button class="btn btn-danger btn-stop">Stop</button>
+          <button class="btn btn-secondary btn-show-browser">Show Browser</button>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="done-summary">
-        <p id="doneSummary"></p>
+      <!-- DONE SCREEN -->
+      <div class="screen screen-done" style="display:none">
+        <div class="header">
+          <h1>Processing Complete!</h1>
+        </div>
+
+        <div class="card">
+          <div class="progress-container">
+            <div class="progress-bar" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stats-grid">
+            <div class="stat-box stat-active"><div class="stat-num done-active-num">0</div><div class="stat-label">Active</div></div>
+            <div class="stat-box stat-inactive"><div class="stat-num done-inactive-num">0</div><div class="stat-label">Inactive</div></div>
+            <div class="stat-box stat-na"><div class="stat-num done-na-num">0</div><div class="stat-label">N/A</div></div>
+            <div class="stat-box stat-cached"><div class="stat-num done-cached-num">0</div><div class="stat-label">Cached</div></div>
+            <div class="stat-box stat-lookups"><div class="stat-num done-lookups-num">0</div><div class="stat-label">Lookups</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="done-summary">
+            <p class="done-summary-text"></p>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn-success btn-open-output">Open Output File</button>
+          <button class="btn btn-warning btn-retry-na">Retry N/A Rows</button>
+          <button class="btn btn-primary btn-new-file">Process New File</button>
+        </div>
       </div>
-    </div>
 
-    <div class="controls">
-      <button id="btnOpenOutput" class="btn btn-success">Open Output File</button>
-      <button id="btnRetryNA" class="btn btn-warning">Retry N/A Rows</button>
-      <button id="btnNewFile" class="btn btn-primary">Process New File</button>
     </div>
-  </section>
+  </template>
 
   <script src="app.js"></script>
 </body>

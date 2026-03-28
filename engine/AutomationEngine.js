@@ -1,26 +1,22 @@
 const { EventEmitter } = require('events');
-const Tesseract = require('tesseract.js');
-const path = require('path');
-
 const { detectType, readInputRows } = require('./detect');
 const { OutputWorkbook } = require('./excel');
-const { solveCaptcha } = require('./captcha');
-const { launchBrowser, navigateToPortal, resetForm, ensurePortalReady, verifyOne } = require('./portal');
+const { navigateToPortal, resetForm, ensurePortalReady, verifyOne } = require('./portal');
 
 const MAX_VERIFY_RETRIES = 3;
 
 class AutomationEngine extends EventEmitter {
   constructor(options) {
     super();
+    this.tabId = options.tabId;
+    this.sharedResources = options.sharedResources;
     this.inputFile = options.inputFile;
     this.outputFile = options.outputFile || options.inputFile.replace(/\.xlsx$/i, '_results.xlsx');
     this.headless = options.headless !== false;
     this.cnicCol = options.cnicCol;
     this.atlCol = options.atlCol;
 
-    this.browser = null;
-    this.page = null;
-    this.worker = null;
+    this.page = null; // borrowed from SharedResources
     this.workbook = null;
 
     this.paused = false;
@@ -57,23 +53,6 @@ class AutomationEngine extends EventEmitter {
     this.emit('log', { level: 'info', message: 'Stopping after current row...' });
   }
 
-  async showBrowser() {
-    if (!this.headless) return;
-    this.emit('log', { level: 'info', message: 'Switching to visible browser...' });
-
-    // Close headless browser
-    if (this.browser) await this.browser.close().catch(() => {});
-
-    // Launch visible
-    this.headless = false;
-    const { browser, page } = await launchBrowser(false);
-    this.browser = browser;
-    this.page = page;
-    await navigateToPortal(this.page);
-
-    this.emit('log', { level: 'info', message: 'Browser now visible.' });
-  }
-
   async _waitWhilePaused() {
     while (this.paused && !this.stopped) {
       await new Promise(r => {
@@ -86,9 +65,9 @@ class AutomationEngine extends EventEmitter {
     }
   }
 
-  _createCaptchaSolver(page) {
+  _createCaptchaSolver() {
     return async (pgRef) => {
-      const result = await solveCaptcha(pgRef, this.worker);
+      const result = await this.sharedResources.solveCaptchaQueued(pgRef);
 
       if (result.solved) {
         this.emit('log', { level: 'info', message: `Captcha OCR: ${result.text}` });
@@ -117,7 +96,7 @@ class AutomationEngine extends EventEmitter {
       }
 
       try {
-        const captchaSolver = this._createCaptchaSolver(this.page);
+        const captchaSolver = this._createCaptchaSolver();
 
         // Attempt 1: primary type
         const result1 = await verifyOne(this.page, captchaSolver, cnicNtn, primaryType);
@@ -231,27 +210,17 @@ class AutomationEngine extends EventEmitter {
 
       this.emit('progress', this._getProgress());
 
-      // 4. Launch browser
+      // 4. Acquire page from shared browser
       this.emit('log', { level: 'info', message: 'Launching browser...' });
-      const { browser, page } = await launchBrowser(this.headless);
-      this.browser = browser;
-      this.page = page;
+      this.page = await this.sharedResources.acquirePage(this.tabId, this.headless);
 
       // 5. Navigate to portal
       this.emit('log', { level: 'info', message: 'Navigating to IRIS portal...' });
       await navigateToPortal(this.page);
 
-      // 6. Init Tesseract
-      this.emit('log', { level: 'info', message: 'Initializing OCR engine...' });
-      this.worker = await Tesseract.createWorker('eng');
-      await this.worker.setParameters({
-        tessedit_char_whitelist: '0123456789',
-        tessedit_pageseg_mode: '7',
-      });
-
       this.emit('log', { level: 'info', message: 'Ready. Processing...' });
 
-      // 7. Process rows
+      // 6. Process rows
       for (let i = 0; i < pendingRows.length; i++) {
         if (this.stopped) break;
         await this._waitWhilePaused();
@@ -332,13 +301,8 @@ class AutomationEngine extends EventEmitter {
   }
 
   async _cleanup() {
-    if (this.worker) {
-      await this.worker.terminate().catch(() => {});
-      this.worker = null;
-    }
-    if (this.browser) {
-      await this.browser.close().catch(() => {});
-      this.browser = null;
+    if (this.page) {
+      await this.sharedResources.releasePage(this.tabId);
       this.page = null;
     }
   }
