@@ -4,7 +4,6 @@ const { solveCaptcha } = require('./captcha');
 const { navigateToPortal } = require('./portal');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 
 function getUserAgent() {
   const platform = process.platform;
@@ -14,42 +13,50 @@ function getUserAgent() {
 }
 
 function getBrowserPath() {
-  // In packaged app, browsers are in extraResources/browsers
   if (process.resourcesPath) {
     const packed = path.join(process.resourcesPath, 'browsers');
     if (fs.existsSync(packed)) {
-      // Find the chromium directory inside
       const dirs = fs.readdirSync(packed).filter(d => d.startsWith('chromium'));
       if (dirs.length > 0) {
         return path.join(packed, dirs[0]);
       }
     }
   }
-  return undefined; // use default (node_modules) in dev
+  return undefined;
 }
 
 class SharedResources {
   constructor() {
-    this.browser = null;
+    this.headlessBrowser = null;
+    this.visibleBrowser = null;
     this.worker = null;
-    this.headless = true;
-    this.pages = new Map(); // tabId -> page
+    this.pages = new Map();     // tabId -> page
+    this.tabModes = new Map();  // tabId -> 'headless' | 'visible'
     this.ocrQueue = Promise.resolve();
   }
 
-  async acquirePage(tabId, headless) {
-    // Launch browser if needed
-    if (!this.browser) {
-      this.headless = headless;
-      const execPath = getBrowserPath();
-      const launchOpts = {
-        headless,
-        slowMo: headless ? 0 : 50,
-        args: ['--disable-blink-features=AutomationControlled'],
-      };
-      if (execPath) launchOpts.executablePath = execPath;
-      this.browser = await chromium.launch(launchOpts);
+  async _getBrowser(headless) {
+    if (headless) {
+      if (!this.headlessBrowser) {
+        const execPath = getBrowserPath();
+        const opts = { headless: true, args: ['--disable-blink-features=AutomationControlled'] };
+        if (execPath) opts.executablePath = execPath;
+        this.headlessBrowser = await chromium.launch(opts);
+      }
+      return this.headlessBrowser;
+    } else {
+      if (!this.visibleBrowser) {
+        const execPath = getBrowserPath();
+        const opts = { headless: false, slowMo: 50, args: ['--disable-blink-features=AutomationControlled'] };
+        if (execPath) opts.executablePath = execPath;
+        this.visibleBrowser = await chromium.launch(opts);
+      }
+      return this.visibleBrowser;
     }
+  }
+
+  async acquirePage(tabId, headless) {
+    const browser = await this._getBrowser(headless);
 
     // Init Tesseract if needed
     if (!this.worker) {
@@ -60,24 +67,43 @@ class SharedResources {
       });
     }
 
-    const page = await this.browser.newPage({
+    const page = await browser.newPage({
       viewport: { width: 1400, height: 900 },
       userAgent: getUserAgent(),
     });
 
     this.pages.set(tabId, page);
+    this.tabModes.set(tabId, headless ? 'headless' : 'visible');
     return page;
   }
 
   async releasePage(tabId) {
     const page = this.pages.get(tabId);
+    const mode = this.tabModes.get(tabId);
     if (page) {
       await page.close().catch(() => {});
       this.pages.delete(tabId);
+      this.tabModes.delete(tabId);
     }
-    // Cleanup everything if no more pages
+
+    // Close browser if no tabs using it
+    if (mode === 'headless' && this.headlessBrowser) {
+      const hasHeadless = [...this.tabModes.values()].some(m => m === 'headless');
+      if (!hasHeadless) {
+        await this.headlessBrowser.close().catch(() => {});
+        this.headlessBrowser = null;
+      }
+    } else if (mode === 'visible' && this.visibleBrowser) {
+      const hasVisible = [...this.tabModes.values()].some(m => m === 'visible');
+      if (!hasVisible) {
+        await this.visibleBrowser.close().catch(() => {});
+        this.visibleBrowser = null;
+      }
+    }
+
+    // Cleanup Tesseract if no pages at all
     if (this.pages.size === 0) {
-      await this.destroy();
+      await this._destroyWorker();
     }
   }
 
@@ -93,50 +119,67 @@ class SharedResources {
     });
   }
 
-  async switchToVisible() {
-    if (!this.headless) return new Map();
-    this.headless = false;
+  // Switch a specific tab from headless to visible
+  async switchTabToVisible(tabId) {
+    const mode = this.tabModes.get(tabId);
+    if (mode !== 'headless') return null; // already visible or not found
 
-    const tabIds = [...this.pages.keys()];
+    // Close old headless page
+    const oldPage = this.pages.get(tabId);
+    if (oldPage) await oldPage.close().catch(() => {});
 
-    // Close headless browser
-    if (this.browser) await this.browser.close().catch(() => {});
-
-    // Launch visible browser
-    const execPath = getBrowserPath();
-    const launchOpts = {
-      headless: false,
-      slowMo: 50,
-      args: ['--disable-blink-features=AutomationControlled'],
-    };
-    if (execPath) launchOpts.executablePath = execPath;
-    this.browser = await chromium.launch(launchOpts);
-
-    // Recreate all pages and navigate to portal
-    const newPages = new Map();
-    for (const tabId of tabIds) {
-      const page = await this.browser.newPage({
-        viewport: { width: 1400, height: 900 },
-        userAgent: getUserAgent(),
-      });
-      this.pages.set(tabId, page);
-      await navigateToPortal(page);
-      newPages.set(tabId, page);
+    // Clean up headless browser if no one else uses it
+    const otherHeadless = [...this.tabModes.entries()].some(([tid, m]) => tid !== tabId && m === 'headless');
+    if (!otherHeadless && this.headlessBrowser) {
+      await this.headlessBrowser.close().catch(() => {});
+      this.headlessBrowser = null;
     }
 
-    return newPages; // caller updates engine page references
+    // Create page on visible browser
+    const browser = await this._getBrowser(false);
+    const page = await browser.newPage({
+      viewport: { width: 1400, height: 900 },
+      userAgent: getUserAgent(),
+    });
+
+    this.pages.set(tabId, page);
+    this.tabModes.set(tabId, 'visible');
+    await navigateToPortal(page);
+    return page;
   }
 
-  async destroy() {
+  // Switch ALL headless tabs to visible (for "Show Browser" button)
+  async switchAllToVisible() {
+    const switched = new Map();
+    const headlessTabs = [...this.tabModes.entries()].filter(([, m]) => m === 'headless').map(([tid]) => tid);
+
+    for (const tabId of headlessTabs) {
+      const page = await this.switchTabToVisible(tabId);
+      if (page) switched.set(tabId, page);
+    }
+
+    return switched;
+  }
+
+  async _destroyWorker() {
     if (this.worker) {
       await this.worker.terminate().catch(() => {});
       this.worker = null;
     }
-    if (this.browser) {
-      await this.browser.close().catch(() => {});
-      this.browser = null;
+  }
+
+  async destroy() {
+    await this._destroyWorker();
+    if (this.headlessBrowser) {
+      await this.headlessBrowser.close().catch(() => {});
+      this.headlessBrowser = null;
+    }
+    if (this.visibleBrowser) {
+      await this.visibleBrowser.close().catch(() => {});
+      this.visibleBrowser = null;
     }
     this.pages.clear();
+    this.tabModes.clear();
   }
 }
 

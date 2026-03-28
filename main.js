@@ -257,12 +257,43 @@ ipcMain.on('stop', async (_, { tabId }) => {
 });
 
 ipcMain.on('show-browser', async () => {
-  const newPages = await sharedResources.switchToVisible();
-  // Update each engine's page reference
-  for (const [tabId, page] of newPages) {
-    const tab = tabs.get(tabId);
-    if (tab && tab.engine) {
-      tab.engine.page = page;
+  // Find headless engines that need switching
+  const headlessEngines = [];
+  for (const [tid, t] of tabs) {
+    const mode = sharedResources.tabModes.get(tid);
+    if (t.engine && t.engine.page && !t.engine.stopped && mode === 'headless') {
+      headlessEngines.push({ tabId: tid, tab: t, wasPaused: t.engine.paused });
+    }
+  }
+
+  if (headlessEngines.length === 0) return;
+
+  // Pause headless engines and wait for them to ACTUALLY reach the pause point (no timeout)
+  const pausePromises = [];
+  for (const { tab: t, wasPaused } of headlessEngines) {
+    if (!wasPaused) {
+      const pausePromise = new Promise(resolve => {
+        t.engine.once('actually-paused', resolve);
+      });
+      t.engine.pause();
+      pausePromises.push(pausePromise);
+    }
+  }
+
+  if (pausePromises.length > 0) await Promise.all(pausePromises);
+
+  // Now all headless engines are safely paused between rows — switch them
+  const switched = await sharedResources.switchAllToVisible();
+
+  // Update page refs and resume
+  for (const [tid, page] of switched) {
+    const t = tabs.get(tid);
+    if (t && t.engine) t.engine.page = page;
+  }
+
+  for (const { tab: t, wasPaused } of headlessEngines) {
+    if (!wasPaused && t.engine && !t.engine.stopped) {
+      t.engine.resume();
     }
   }
 });

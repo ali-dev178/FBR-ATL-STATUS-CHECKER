@@ -55,6 +55,7 @@ class AutomationEngine extends EventEmitter {
 
   async _waitWhilePaused() {
     while (this.paused && !this.stopped) {
+      this.emit('actually-paused');
       await new Promise(r => {
         const check = () => {
           if (!this.paused || this.stopped) return r();
@@ -63,6 +64,34 @@ class AutomationEngine extends EventEmitter {
         check();
       });
     }
+  }
+
+  _isPageClosed(err) {
+    const msg = (err && err.message) || '';
+    return msg.includes('Target page, context or browser has been closed') ||
+           msg.includes('has been closed') ||
+           msg.includes('browser has been disconnected');
+  }
+
+  async _reconnectPage() {
+    this.emit('log', { level: 'warn', message: 'Browser/page closed — switching to background mode...' });
+    // Release the dead page reference
+    this.sharedResources.pages.delete(this.tabId);
+    this.sharedResources.tabModes.delete(this.tabId);
+    this.page = null;
+
+    // Also clean up the dead visible browser if no one else uses it
+    const hasVisible = [...this.sharedResources.tabModes.values()].some(m => m === 'visible');
+    if (!hasVisible && this.sharedResources.visibleBrowser) {
+      await this.sharedResources.visibleBrowser.close().catch(() => {});
+      this.sharedResources.visibleBrowser = null;
+    }
+
+    // Reconnect in headless (background) mode — faster and no accidental close
+    this.headless = true;
+    this.page = await this.sharedResources.acquirePage(this.tabId, true);
+    await navigateToPortal(this.page);
+    this.emit('log', { level: 'info', message: 'Reconnected in background mode — continuing...' });
   }
 
   _createCaptchaSolver() {
@@ -134,6 +163,9 @@ class AutomationEngine extends EventEmitter {
         return 'N/A';
 
       } catch (err) {
+        // If page/browser was closed, bubble up immediately — don't retry on dead page
+        if (this._isPageClosed(err)) throw err;
+
         this.emit('log', { level: 'error', message: `Error (attempt ${retry + 1}): ${err.message.substring(0, 150)}` });
         await this.page.locator('.swal2-confirm, .swal2-close').first().click({ timeout: 1000 }).catch(() => {});
         if (retry < MAX_VERIFY_RETRIES - 1) {
@@ -241,8 +273,18 @@ class AutomationEngine extends EventEmitter {
         } else {
           this.emit('log', { level: 'info', message: `[${i + 1}/${pendingRows.length}] Sr ${srNo}: ${cnicNtn} (${primaryType})` });
 
-          await ensurePortalReady(this.page);
-          atlStatus = await this._verifyWithRetries(cnicNtn, primaryType);
+          try {
+            await ensurePortalReady(this.page);
+            atlStatus = await this._verifyWithRetries(cnicNtn, primaryType);
+          } catch (err) {
+            if (this._isPageClosed(err)) {
+              await this._reconnectPage();
+              // Retry this row from scratch
+              i--;
+              continue;
+            }
+            throw err;
+          }
           this.stats.portalLookups++;
 
           this.resultCache.set(cnicNtn, atlStatus);
@@ -258,7 +300,10 @@ class AutomationEngine extends EventEmitter {
 
         // Reset form for next (if next needs portal lookup)
         if (i < pendingRows.length - 1 && !this.resultCache.has(pendingRows[i + 1]?.cnicNtn)) {
-          await resetForm(this.page);
+          await resetForm(this.page).catch(err => {
+            if (!this._isPageClosed(err)) throw err;
+            // Page closed during reset — will reconnect on next iteration
+          });
         }
       }
 
