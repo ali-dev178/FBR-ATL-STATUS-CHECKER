@@ -2,6 +2,31 @@ const { chromium } = require('playwright');
 const Tesseract = require('tesseract.js');
 const { solveCaptcha } = require('./captcha');
 const { navigateToPortal } = require('./portal');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+
+function getUserAgent() {
+  const platform = process.platform;
+  if (platform === 'darwin') return 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  if (platform === 'linux') return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+}
+
+function getBrowserPath() {
+  // In packaged app, browsers are in extraResources/browsers
+  if (process.resourcesPath) {
+    const packed = path.join(process.resourcesPath, 'browsers');
+    if (fs.existsSync(packed)) {
+      // Find the chromium directory inside
+      const dirs = fs.readdirSync(packed).filter(d => d.startsWith('chromium'));
+      if (dirs.length > 0) {
+        return path.join(packed, dirs[0]);
+      }
+    }
+  }
+  return undefined; // use default (node_modules) in dev
+}
 
 class SharedResources {
   constructor() {
@@ -16,11 +41,14 @@ class SharedResources {
     // Launch browser if needed
     if (!this.browser) {
       this.headless = headless;
-      this.browser = await chromium.launch({
+      const execPath = getBrowserPath();
+      const launchOpts = {
         headless,
         slowMo: headless ? 0 : 50,
         args: ['--disable-blink-features=AutomationControlled'],
-      });
+      };
+      if (execPath) launchOpts.executablePath = execPath;
+      this.browser = await chromium.launch(launchOpts);
     }
 
     // Init Tesseract if needed
@@ -34,7 +62,7 @@ class SharedResources {
 
     const page = await this.browser.newPage({
       viewport: { width: 1400, height: 900 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      userAgent: getUserAgent(),
     });
 
     this.pages.set(tabId, page);
@@ -75,18 +103,21 @@ class SharedResources {
     if (this.browser) await this.browser.close().catch(() => {});
 
     // Launch visible browser
-    this.browser = await chromium.launch({
+    const execPath = getBrowserPath();
+    const launchOpts = {
       headless: false,
       slowMo: 50,
       args: ['--disable-blink-features=AutomationControlled'],
-    });
+    };
+    if (execPath) launchOpts.executablePath = execPath;
+    this.browser = await chromium.launch(launchOpts);
 
     // Recreate all pages and navigate to portal
     const newPages = new Map();
     for (const tabId of tabIds) {
       const page = await this.browser.newPage({
         viewport: { width: 1400, height: 900 },
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        userAgent: getUserAgent(),
       });
       this.pages.set(tabId, page);
       await navigateToPortal(page);

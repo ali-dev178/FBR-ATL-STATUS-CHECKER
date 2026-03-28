@@ -2,6 +2,13 @@ const { chromium } = require('playwright');
 
 const PORTAL_URL = 'https://iris.fbr.gov.pk/';
 
+function getUserAgent() {
+  const platform = process.platform;
+  if (platform === 'darwin') return 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  if (platform === 'linux') return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+  return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+}
+
 async function launchBrowser(headless = true) {
   const browser = await chromium.launch({
     headless,
@@ -10,7 +17,7 @@ async function launchBrowser(headless = true) {
   });
   const page = await browser.newPage({
     viewport: { width: 1400, height: 900 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    userAgent: getUserAgent(),
   });
   return { browser, page };
 }
