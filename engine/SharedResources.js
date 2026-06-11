@@ -16,9 +16,9 @@ function getBrowserPath() {
   if (process.resourcesPath) {
     const packed = path.join(process.resourcesPath, 'browsers');
     if (fs.existsSync(packed)) {
-      const dirs = fs.readdirSync(packed).filter(d => d.startsWith('chromium'));
+      const dirs = fs.readdirSync(packed).filter(d => d.startsWith('chromium-'));
       if (dirs.length > 0) {
-        return path.join(packed, dirs[0]);
+        return path.join(packed, dirs[0], 'chrome-win64', 'chrome.exe');
       }
     }
   }

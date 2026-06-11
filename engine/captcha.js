@@ -1,10 +1,11 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const MAX_CAPTCHA_RETRIES = 5;
 
 async function solveCaptcha(page, worker, tempDir) {
-  const captchaPath = path.join(tempDir || __dirname, '..', 'captcha_temp.png');
+  const captchaPath = path.join(tempDir || os.tmpdir(), 'captcha_temp.png');
 
   for (let attempt = 0; attempt < MAX_CAPTCHA_RETRIES; attempt++) {
     const dataUrl = await page.evaluate(() => {

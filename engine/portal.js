@@ -10,11 +10,17 @@ function getUserAgent() {
 }
 
 async function launchBrowser(headless = true) {
-  const browser = await chromium.launch({
+  const launchOptions = {
     headless,
     slowMo: headless ? 0 : 50,
     args: ['--disable-blink-features=AutomationControlled'],
-  });
+  };
+
+  if (process.env.PLAYWRIGHT_CHROMIUM_PATH) {
+    launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  }
+
+  const browser = await chromium.launch(launchOptions);
   const page = await browser.newPage({
     viewport: { width: 1400, height: 900 },
     userAgent: getUserAgent(),

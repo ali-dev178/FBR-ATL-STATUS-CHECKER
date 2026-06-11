@@ -160,7 +160,7 @@ class AutomationEngine extends EventEmitter {
         }
 
         // Both failed with non-transient errors
-        return 'N/A';
+        return 'Record not exist';
 
       } catch (err) {
         // If page/browser was closed, bubble up immediately — don't retry on dead page
@@ -174,14 +174,14 @@ class AutomationEngine extends EventEmitter {
       }
     }
 
-    return 'N/A';
+    return 'Record not exist';
   }
 
   _updateStat(status) {
     const lower = status.toLowerCase().replace(/[^a-z]/g, ''); // "In-Active" → "inactive"
     if (lower === 'active') {
       this.stats.active++;
-    } else if (status === 'N/A') {
+    } else if (status === 'Record not exist') {
       this.stats.na++;
     } else {
       this.stats.inactive++;
@@ -263,7 +263,7 @@ class AutomationEngine extends EventEmitter {
 
         this.emit('row-start', { index: i, total: pendingRows.length, srNo, buyerName, cnicNtn, type: primaryType });
 
-        let atlStatus = 'N/A';
+        let atlStatus = 'Record not exist';
 
         // Check cache
         if (this.resultCache.has(cnicNtn)) {
@@ -328,7 +328,7 @@ class AutomationEngine extends EventEmitter {
 
     // Clear N/A entries from cache so they get re-looked up
     for (const [key, val] of this.resultCache) {
-      if (val === 'N/A') this.resultCache.delete(key);
+      if (val === 'Record not exist') this.resultCache.delete(key);
     }
 
     // Reset stats for retry run

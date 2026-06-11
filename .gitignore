@@ -1,7 +1,13 @@
 node_modules/
-*.png
+dist/
 eng.traineddata
 captcha_temp.*
 *_results.xlsx
 output.xlsx
 .claude/
+
+# Captcha temp files
+captcha_temp.png
+
+# Input files (user data)
+Input.xlsx

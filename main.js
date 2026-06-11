@@ -1,6 +1,24 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Point Playwright to the bundled Chromium inside the packaged app
+if (app.isPackaged) {
+  const browsersPath = path.join(process.resourcesPath, 'browsers');
+  process.env.PLAYWRIGHT_BROWSERS_PATH = browsersPath;
+
+  // Find the chromium-XXXX directory dynamically and set the exact exe path
+  try {
+    const dirs = fs.readdirSync(browsersPath).filter(d => d.startsWith('chromium-'));
+    if (dirs.length > 0) {
+      process.env.PLAYWRIGHT_CHROMIUM_PATH = path.join(
+        browsersPath, dirs[0], 'chrome-win64', 'chrome.exe'
+      );
+    }
+  } catch (e) {
+    console.error('Failed to locate bundled Chromium:', e.message);
+  }
+}
 const { generatePreview } = require('./engine/detect');
 const { AutomationEngine } = require('./engine/AutomationEngine');
 const { SharedResources } = require('./engine/SharedResources');

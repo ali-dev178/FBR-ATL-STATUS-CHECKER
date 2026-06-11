@@ -42,21 +42,13 @@
     ],
     "win": {
       "target": [
-        "nsis"
-      ],
-      "icon": "assets/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "assets/icon.png",
-      "uninstallerIcon": "assets/icon.png"
+        "portable"
+      ]
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "assets/icon.png",
       "category": "public.app-category.business"
     },
     "dmg": {
