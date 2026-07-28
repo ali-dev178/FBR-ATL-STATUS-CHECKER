@@ -146,7 +146,7 @@ Grab the latest build for your platform from the [Releases page](https://github.
 | macOS (Intel) | `FBR-ATL-Status-Checker-<version>-mac-x64.dmg` | Drag to Applications |
 | Linux | `FBR-ATL-Status-Checker-<version>-linux-x86_64.AppImage` | `chmod +x` then run — community-supported, lightly tested |
 
-Chromium is bundled inside the build, so there is nothing else to install. That is also why the downloads are large — 190–300 MB depending on platform, expanding to roughly 800 MB on disk.
+Chromium is bundled inside the build, so there is nothing else to install. That is also why the downloads are large — 210–320 MB depending on platform, expanding to roughly 800 MB on disk.
 
 The builds are **not code-signed**, so the operating system will warn you the first time:
 
