@@ -14,8 +14,8 @@ First public release.
 ### Added
 
 - Tabbed Electron app for bulk ATL verification against the FBR IRIS portal
-- Automatic detection of the header row, CNIC/NTN column, ATL Status column, and the serial and name columns used for progress display, with dropdown overrides for each
-- Local captcha solving with Tesseract OCR — up to 5 attempts with a refresh between tries — and a manual-entry popup when it fails
+- Automatic detection of the header row, CNIC/NTN column, ATL Status column, and the serial and name columns used for progress display; the read and write columns can be corrected from a dropdown
+- Captchas solved locally with Tesseract OCR — up to 5 attempts per row, refreshing the captcha between tries — falling back to a manual-entry popup only if all of them miss
 - Resume support: completed rows are read back from the output workbook, so a stopped or crashed run picks up where it left off
 - Duplicate cache, so a repeated CNIC/NTN costs one lookup instead of many
 - Per-row retries with a CNIC ↔ NTN fallback when the portal rejects the guessed parameter type
