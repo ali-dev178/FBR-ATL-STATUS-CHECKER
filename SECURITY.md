@@ -28,6 +28,18 @@ Once a fix is ready it ships in a release, and the advisory is published with cr
 - **Unsigned builds triggering SmartScreen or Gatekeeper.** This is known and documented in the README. Code-signing certificates are not something this project currently has.
 - Reports produced by running a scanner over the dependency tree without showing an exploitable path.
 
+## Known dependency advisories
+
+**SheetJS is not installed from npm.** The `xlsx` package on the npm registry has been abandoned at 0.18.5 and carries unfixed prototype-pollution and ReDoS advisories. Since parsing other people's spreadsheets is exactly what this app does, the dependency points at SheetJS's own distribution instead:
+
+```json
+"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+```
+
+That is the vendor's documented way of shipping releases. Two consequences: `npm ci` needs to reach `cdn.sheetjs.com`, and Dependabot cannot track the version — updating it is a manual edit.
+
+**`exceljs` pulls in advisories that this app does not reach.** `npm audit` reports issues in `archiver` and its dependency chain (`glob`, `minimatch`, `rimraf`, `zip-stream`). Those are on exceljs's *writing* path, which this app never calls — output is written by `engine/excel.js` through JSZip. exceljs is used only to read existing results back for resume support. The advisories will clear when exceljs updates; a fix is not available downstream today, and the only "fix" npm offers is a major downgrade that would be worse.
+
 ## Notes for users
 
 - Downloads should come from the [Releases page](https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/releases) of this repository. Release binaries are built by the [release workflow](.github/workflows/release.yml) from a tagged commit, on GitHub-hosted runners.

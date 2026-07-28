@@ -57,6 +57,10 @@ npm run screenshots    # screenshots/*.png  (launches the app)
 
 Regenerate the screenshots whenever you change the UI, so the README does not drift away from what the app looks like.
 
+## A note on the SheetJS dependency
+
+`xlsx` is installed from `https://cdn.sheetjs.com/...`, not from npm — the npm copy is abandoned and carries unfixed advisories. This is deliberate and documented in [SECURITY.md](SECURITY.md). It means `npm install` needs to reach that CDN, and that Dependabot will never open a PR for it: bumping SheetJS is a manual edit of the URL in `package.json`.
+
 ## Style
 
 Match the file you are editing. The codebase is plain CommonJS with no build step, no transpiler and no linter — 2-space indent, semicolons, single quotes.

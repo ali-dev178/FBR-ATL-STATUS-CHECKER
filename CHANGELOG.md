@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Electron 35 → 43, Playwright 1.58 → 1.62, electron-builder 26.8 → 26.15. Verified by running the app from source, packaging it, and launching the packaged build to confirm it still finds its bundled Chromium.
 - `actions/checkout` and `actions/setup-node` moved from v4 to v7; CI now covers Node 20, 22 and 24.
 
+### Security
+
+- **SheetJS now comes from its official distribution instead of npm.** The `xlsx` package on npm is abandoned at 0.18.5 and carries unfixed prototype-pollution and ReDoS advisories, which matter for a tool whose whole job is parsing spreadsheets someone handed you. The dependency now points at `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, which is how SheetJS ships releases. See SECURITY.md.
+- Picked up patched transitive dependencies (`brace-expansion`, `tmp`).
+
 ## [1.0.0] — 2026-07-28
 
 First public release.
