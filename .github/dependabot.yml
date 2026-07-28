@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      # Electron and the builder move together; so do the Excel libraries.
+      electron:
+        patterns: ['electron', 'electron-builder']
+      excel:
+        patterns: ['xlsx', 'exceljs', 'jszip']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

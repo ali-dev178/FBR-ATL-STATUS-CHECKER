@@ -5,6 +5,10 @@ const { navigateToPortal, resetForm, ensurePortalReady, verifyOne } = require('.
 
 const MAX_VERIFY_RETRIES = 3;
 
+// The status recorded when the portal has nothing for a registration number.
+// This is what the N/A counter tracks and what "Retry N/A Rows" re-attempts.
+const NOT_FOUND = 'Record not exist';
+
 class AutomationEngine extends EventEmitter {
   constructor(options) {
     super();
@@ -160,7 +164,7 @@ class AutomationEngine extends EventEmitter {
         }
 
         // Both failed with non-transient errors
-        return 'Record not exist';
+        return NOT_FOUND;
 
       } catch (err) {
         // If page/browser was closed, bubble up immediately — don't retry on dead page
@@ -174,14 +178,14 @@ class AutomationEngine extends EventEmitter {
       }
     }
 
-    return 'Record not exist';
+    return NOT_FOUND;
   }
 
   _updateStat(status) {
     const lower = status.toLowerCase().replace(/[^a-z]/g, ''); // "In-Active" → "inactive"
     if (lower === 'active') {
       this.stats.active++;
-    } else if (status === 'Record not exist') {
+    } else if (status === NOT_FOUND) {
       this.stats.na++;
     } else {
       this.stats.inactive++;
@@ -201,7 +205,33 @@ class AutomationEngine extends EventEmitter {
     };
   }
 
-  async start() {
+  /**
+   * Split rows into "already done" and "still to do", seeding the cache from
+   * the results already in the output workbook.
+   *
+   * `redoStatuses` lists statuses that should NOT count as done — that is what
+   * makes "Retry N/A Rows" work. Without it, a row whose recorded result is
+   * "Record not exist" looks identical to a successfully verified row, and the
+   * retry finds nothing to do.
+   */
+  _splitRows(dataRows, existingResults, redoStatuses = null) {
+    const pendingRows = [];
+    let skipped = 0;
+
+    for (const row of dataRows) {
+      const existing = existingResults.get(row.excelRow);
+      if (existing && !(redoStatuses && redoStatuses.has(existing))) {
+        this.resultCache.set(row.cnicNtn, existing);
+        skipped++;
+      } else {
+        pendingRows.push(row);
+      }
+    }
+
+    return { pendingRows, skipped };
+  }
+
+  async start({ redoStatuses = null } = {}) {
     this.stopped = false;
     this.paused = false;
     this.stats.startTime = Date.now();
@@ -218,16 +248,8 @@ class AutomationEngine extends EventEmitter {
       // 3. Check existing results for resume
       const existingResults = await this.workbook.getExistingResults(atlCol);
 
-      const pendingRows = [];
-      for (const row of dataRows) {
-        const existing = existingResults.get(row.excelRow);
-        if (existing) {
-          this.resultCache.set(row.cnicNtn, existing);
-          this.stats.skipped++;
-        } else {
-          pendingRows.push(row);
-        }
-      }
+      const { pendingRows, skipped } = this._splitRows(dataRows, existingResults, redoStatuses);
+      this.stats.skipped = skipped;
 
       this.stats.total = pendingRows.length;
 
@@ -263,7 +285,7 @@ class AutomationEngine extends EventEmitter {
 
         this.emit('row-start', { index: i, total: pendingRows.length, srNo, buyerName, cnicNtn, type: primaryType });
 
-        let atlStatus = 'Record not exist';
+        let atlStatus = NOT_FOUND;
 
         // Check cache
         if (this.resultCache.has(cnicNtn)) {
@@ -328,7 +350,7 @@ class AutomationEngine extends EventEmitter {
 
     // Clear N/A entries from cache so they get re-looked up
     for (const [key, val] of this.resultCache) {
-      if (val === 'Record not exist') this.resultCache.delete(key);
+      if (val === NOT_FOUND) this.resultCache.delete(key);
     }
 
     // Reset stats for retry run
@@ -342,7 +364,10 @@ class AutomationEngine extends EventEmitter {
     this.stopped = false;
     this.paused = false;
 
-    await this.start();
+    // Tell start() not to treat an existing "Record not exist" as done —
+    // otherwise it reads those results back out of the output workbook and
+    // concludes there is nothing left to process.
+    await this.start({ redoStatuses: new Set([NOT_FOUND]) });
   }
 
   async _cleanup() {
@@ -358,4 +383,4 @@ class AutomationEngine extends EventEmitter {
   }
 }
 
-module.exports = { AutomationEngine };
+module.exports = { AutomationEngine, NOT_FOUND };

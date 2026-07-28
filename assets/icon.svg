@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#222e55"/>
+      <stop offset="100%" stop-color="#131a30"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00d2a4"/>
+      <stop offset="100%" stop-color="#00a884"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="5" y="5" width="502" height="502" rx="107" fill="none" stroke="#0f3460" stroke-width="10"/>
+
+  <!-- Spreadsheet sheet -->
+  <g transform="translate(78 78)">
+    <rect x="0" y="0" width="300" height="300" rx="24" fill="#eaeff8"/>
+    <path d="M0 24A24 24 0 0 1 24 0h252a24 24 0 0 1 24 24v40H0z" fill="#0f3460"/>
+
+    <!-- header labels -->
+    <g fill="#7f93b8">
+      <rect x="26" y="24" width="86" height="16" rx="8"/>
+      <rect x="176" y="24" width="86" height="16" rx="8"/>
+    </g>
+
+    <!-- grid -->
+    <g stroke="#c6d1e4" stroke-width="7" stroke-linecap="round">
+      <line x1="150" y1="64" x2="150" y2="300"/>
+      <line x1="0" y1="123" x2="300" y2="123"/>
+      <line x1="0" y1="182" x2="300" y2="182"/>
+      <line x1="0" y1="241" x2="300" y2="241"/>
+    </g>
+
+    <!-- CNIC / NTN column -->
+    <g fill="#93a5c6">
+      <rect x="28" y="86" width="94" height="16" rx="8"/>
+      <rect x="28" y="145" width="94" height="16" rx="8"/>
+      <rect x="28" y="204" width="94" height="16" rx="8"/>
+      <rect x="28" y="263" width="94" height="16" rx="8"/>
+    </g>
+
+    <!-- ATL status column -->
+    <rect x="178" y="86" width="94" height="16" rx="8" fill="#00b894"/>
+    <rect x="178" y="145" width="94" height="16" rx="8" fill="#00b894"/>
+    <rect x="178" y="204" width="94" height="16" rx="8" fill="#e17055"/>
+    <rect x="178" y="263" width="94" height="16" rx="8" fill="#00b894"/>
+  </g>
+
+  <!-- Verified badge -->
+  <g transform="translate(292 292)">
+    <circle cx="76" cy="76" r="88" fill="#131a30"/>
+    <circle cx="76" cy="76" r="76" fill="url(#check)"/>
+    <path d="M42 78 L66 102 L112 50"
+          fill="none" stroke="#0d1526" stroke-width="21"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

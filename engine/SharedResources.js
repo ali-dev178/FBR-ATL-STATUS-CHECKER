@@ -2,8 +2,8 @@ const { chromium } = require('playwright');
 const Tesseract = require('tesseract.js');
 const { solveCaptcha } = require('./captcha');
 const { navigateToPortal } = require('./portal');
-const path = require('path');
-const fs = require('fs');
+const { chromiumExecutablePath } = require('./browserPath');
+const os = require('os');
 
 function getUserAgent() {
   const platform = process.platform;
@@ -12,21 +12,16 @@ function getUserAgent() {
   return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 }
 
-function getBrowserPath() {
-  if (process.resourcesPath) {
-    const packed = path.join(process.resourcesPath, 'browsers');
-    if (fs.existsSync(packed)) {
-      const dirs = fs.readdirSync(packed).filter(d => d.startsWith('chromium-'));
-      if (dirs.length > 0) {
-        return path.join(packed, dirs[0], 'chrome-win64', 'chrome.exe');
-      }
-    }
-  }
-  return undefined;
-}
-
 class SharedResources {
-  constructor() {
+  /**
+   * `ocrCachePath` is where the Tesseract language model is kept. tesseract.js
+   * downloads `eng.traineddata` (~10 MB) from a CDN the first time OCR runs and
+   * caches it; left to itself it writes into the process working directory,
+   * which for a portable build is wherever the user happened to launch it from
+   * and may not even be writable. Callers should point this at app storage.
+   */
+  constructor({ ocrCachePath } = {}) {
+    this.ocrCachePath = ocrCachePath || os.tmpdir();
     this.headlessBrowser = null;
     this.visibleBrowser = null;
     this.worker = null;
@@ -38,7 +33,7 @@ class SharedResources {
   async _getBrowser(headless) {
     if (headless) {
       if (!this.headlessBrowser) {
-        const execPath = getBrowserPath();
+        const execPath = chromiumExecutablePath();
         const opts = { headless: true, args: ['--disable-blink-features=AutomationControlled'] };
         if (execPath) opts.executablePath = execPath;
         this.headlessBrowser = await chromium.launch(opts);
@@ -46,7 +41,7 @@ class SharedResources {
       return this.headlessBrowser;
     } else {
       if (!this.visibleBrowser) {
-        const execPath = getBrowserPath();
+        const execPath = chromiumExecutablePath();
         const opts = { headless: false, slowMo: 50, args: ['--disable-blink-features=AutomationControlled'] };
         if (execPath) opts.executablePath = execPath;
         this.visibleBrowser = await chromium.launch(opts);
@@ -60,7 +55,9 @@ class SharedResources {
 
     // Init Tesseract if needed
     if (!this.worker) {
-      this.worker = await Tesseract.createWorker('eng');
+      this.worker = await Tesseract.createWorker('eng', undefined, {
+        cachePath: this.ocrCachePath,
+      });
       await this.worker.setParameters({
         tessedit_char_whitelist: '0123456789',
         tessedit_pageseg_mode: '7',

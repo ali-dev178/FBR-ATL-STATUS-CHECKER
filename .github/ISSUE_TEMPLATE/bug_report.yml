@@ -1,0 +1,90 @@
+name: Bug report
+description: Something does not work the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report.
+
+        **Please do not include real CNIC or NTN numbers, or anyone's name.**
+        Redact them, or reproduce with `examples/sample-input.xlsx`.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the app
+        2. Select a file with ...
+        3. Press Start Processing
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: >
+        The contents of the log box on the processing screen, with identifiers
+        removed. This is usually the most useful thing in the whole report.
+      render: text
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How are you running it?
+      options:
+        - Downloaded release build
+        - Running from source (npm start)
+        - Command line (automate.js)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From the release you downloaded, or the commit you are on.
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: file-shape
+    attributes:
+      label: What does the input file look like?
+      description: >
+        Only if the problem involves reading or writing a file. Describe the
+        structure — where the header row is, which columns exist, merged cells,
+        hidden columns, several sheets. Do not attach a file with real data.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have removed all real taxpayer identifiers and names from this report
+          required: true
+        - label: I searched existing issues for the same problem
+          required: true

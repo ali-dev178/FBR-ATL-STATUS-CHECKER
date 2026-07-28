@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/security/advisories/new
+    about: Report security issues privately — please do not open a public issue.
+  - name: Question or usage help
+    url: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/discussions
+    about: Ask how to do something, or share how you are using the app.
+  - name: FBR IRIS portal problems
+    url: https://iris.fbr.gov.pk/
+    about: Portal outages and account issues are for FBR, not this project.

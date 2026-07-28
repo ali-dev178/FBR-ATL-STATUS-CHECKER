@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest something the app should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: >
+        Describe the situation rather than the solution — what does your
+        workflow look like today, and where does the app get in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do instead today?
+      description: Workarounds, other tools, or doing it by hand.
+
+  - type: checkboxes
+    id: roadmap
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked the roadmap in the README and the existing issues
+          required: true

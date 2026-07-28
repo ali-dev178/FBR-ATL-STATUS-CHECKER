@@ -1,0 +1,15 @@
+# Store text as LF in the repository; check it out however the platform wants.
+* text=auto
+
+*.xlsx  binary
+*.xls   binary
+*.png   binary
+*.ico   binary
+*.icns  binary
+*.docx  binary
+
+# Keep generated assets out of diffs and language stats.
+screenshots/*  linguist-generated=true
+assets/icon.png  linguist-generated=true
+assets/icon.ico  linguist-generated=true
+examples/*.xlsx  linguist-generated=true

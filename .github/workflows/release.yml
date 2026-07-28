@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and release (e.g. v1.0.0)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  # Chromium is fetched deliberately by `npm run browsers` into the directory
+  # electron-builder copies from. Playwright's postinstall would put it in a
+  # per-user cache the build cannot reach, so skip it.
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+jobs:
+  draft:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Passed through env rather than interpolated into the script, so a tag
+      # name can never be executed as shell.
+      - id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      # Prefer the hand-written CHANGELOG section for this version; fall back to
+      # generated notes if the tag has no matching entry.
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # Everything under "## [<version>]" up to the next section or the
+          # link definitions at the bottom, with blank edges trimmed.
+          awk -v v="${TAG#v}" '
+            index($0, "## [" v "]") == 1 { inside = 1; next }
+            inside && index($0, "## [") == 1 { exit }
+            inside && /^\[/ { exit }
+            inside { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac > notes.md
+
+          if [ -s notes.md ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Using the CHANGELOG entry for ${TAG#v}:"
+            cat notes.md
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No CHANGELOG entry for ${TAG#v} — falling back to generated notes."
+          fi
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists — reusing it."
+          elif [ "${{ steps.notes.outputs.found }}" = "true" ]; then
+            gh release create "$TAG" --draft --title "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes
+          fi
+
+  build:
+    name: Build ${{ matrix.label }}
+    needs: draft
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows x64
+            script: dist:win
+          - os: macos-latest
+            label: macOS arm64
+            script: dist:mac
+          # Intel macOS. The old `macos-13` label was retired in December 2025;
+          # `macos-15-intel` is the current x64 image. Each runner bundles the
+          # Chromium for its own architecture, so the two macOS legs cannot be
+          # collapsed into one cross-compiled job.
+          - os: macos-15-intel
+            label: macOS x64
+            script: dist:mac
+          - os: ubuntu-latest
+            label: Linux x64
+            script: dist:linux
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.draft.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Smoke checks
+        run: npm run check
+
+      - name: Build
+        # `--publish never` keeps electron-builder from trying to upload on its
+        # own — the release assets are attached explicitly in the next step.
+        run: npm run ${{ matrix.script }} -- --publish never
+
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          assets=(dist/*.exe dist/*.dmg dist/*.AppImage)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No build artifacts found in dist/" >&2
+            ls -la dist || true
+            exit 1
+          fi
+          printf 'Uploading: %s\n' "${assets[@]}"
+          gh release upload "$TAG" "${assets[@]}" --clobber
+
+  publish:
+    name: Publish release
+    needs: [draft, build]
+    # Runs even if one platform failed to build, so a single bad leg cannot
+    # strand the release in draft forever. Check the build jobs before
+    # announcing a release — a missing asset is not reported here.
+    if: ${{ !cancelled() && needs.draft.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Undraft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest

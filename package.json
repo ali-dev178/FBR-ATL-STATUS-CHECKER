@@ -1,26 +1,59 @@
 {
   "name": "fbr-atl-checker",
   "version": "1.0.0",
-  "description": "FBR Active Taxpayer List Status Checker",
+  "description": "Desktop app that bulk-verifies Active Taxpayer List (ATL) status for CNIC/NTN numbers against Pakistan's FBR IRIS portal, straight from an Excel file.",
   "main": "main.js",
+  "homepage": "https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/issues"
+  },
+  "author": "Ali Muhammad (https://github.com/ali-dev178)",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "fbr",
+    "iris",
+    "atl",
+    "active-taxpayer-list",
+    "pakistan",
+    "tax",
+    "cnic",
+    "ntn",
+    "excel",
+    "electron",
+    "playwright",
+    "automation",
+    "ocr"
+  ],
   "scripts": {
     "start": "electron .",
     "cli": "node automate.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac",
-    "dist:all": "electron-builder --win --mac"
+    "sample": "node scripts/generate-sample.js",
+    "icons": "node scripts/generate-icons.js",
+    "screenshots": "node scripts/capture-screenshots.js",
+    "browsers": "node scripts/install-bundled-chromium.js",
+    "check": "node scripts/check.js",
+    "pack": "npm run browsers && electron-builder --dir",
+    "dist": "npm run browsers && electron-builder",
+    "dist:win": "npm run browsers && electron-builder --win",
+    "dist:mac": "npm run browsers && electron-builder --mac",
+    "dist:linux": "npm run browsers && electron-builder --linux",
+    "dist:all": "npm run browsers && electron-builder --win --mac --linux"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "build": {
     "appId": "com.fbr.atl-checker",
     "productName": "FBR ATL Status Checker",
+    "artifactName": "FBR-ATL-Status-Checker-${version}-${os}-${arch}.${ext}",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "assets"
     },
     "files": [
       "main.js",
@@ -29,27 +62,38 @@
       "renderer/**/*",
       "assets/**/*",
       "node_modules/**/*",
-      "!node_modules/playwright/.local-browsers/**/*"
+      "!node_modules/playwright/.local-browsers/**/*",
+      "!node_modules/playwright-core/.local-browsers/**/*"
     ],
     "extraResources": [
       {
-        "from": "node_modules/playwright/.local-browsers",
+        "from": "node_modules/playwright-core/.local-browsers",
         "to": "browsers",
         "filter": [
-          "chromium*/**/*"
+          "chromium-*/**/*"
         ]
       }
     ],
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         "portable"
       ]
     },
     "mac": {
+      "icon": "assets/icon.png",
+      "identity": null,
       "target": [
         "dmg"
       ],
       "category": "public.app-category.business"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office"
     },
     "dmg": {
       "contents": [

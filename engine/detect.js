@@ -237,21 +237,12 @@ function readInputRows(filePath, cnicCol, atlCol) {
   const startRow = range.s.r;
   const allRows = XLSX.utils.sheet_to_json(ws, { defval: '', header: 1 });
 
-  // Find header row
-  let headerIdx = -1;
-  for (let i = 0; i < allRows.length; i++) {
-    const row = allRows[i];
-    for (let c = 0; c < row.length; c++) {
-      const val = String(row[c] || '').toLowerCase().trim();
-      if (val.includes('cnic') || val.includes('ntn') || c === cnicCol) {
-        headerIdx = i;
-        break;
-      }
-    }
-    if (headerIdx >= 0) break;
-  }
-
-  if (headerIdx < 0) headerIdx = 0;
+  // Find the header row exactly the way the preview did. Detecting it a second
+  // time here used to treat any row with a cell at the read-column index as the
+  // header, which matched a title row sitting above the real header — the
+  // header itself then got processed as a data row and its label overwritten.
+  const detected = autoDetectColumns(filePath);
+  const headerIdx = detected ? detected.headerIdx : 0;
 
   const headerRow = allRows[headerIdx] || [];
   const srCol = detectSrCol(headerRow);

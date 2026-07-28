@@ -1,0 +1,51 @@
+name: Portal changed
+description: The FBR IRIS portal changed and the app can no longer drive it
+labels: ["bug", "portal"]
+title: "Portal change: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the app worked before and suddenly stopped — a form field
+        that no longer fills, a captcha that never solves, a result that is not
+        found, or navigation that hangs on the verification page.
+
+        **No real CNIC or NTN numbers in screenshots or logs, please.**
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What breaks
+      description: Where exactly does it stop, and what does the app do instead?
+    validations:
+      required: true
+
+  - type: input
+    id: when
+    attributes:
+      label: When did it start
+      placeholder: "Worked on 2026-07-20, broken since 2026-07-24"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: The log box contents, with identifiers removed.
+      render: text
+
+  - type: textarea
+    id: portal
+    attributes:
+      label: What the portal looks like now
+      description: >
+        Run the app in Visible mode and describe or screenshot the page at the
+        point it fails. If you can, `scripts/recon/portal-selectors.js` dumps
+        the current selectors — paste its output here.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have removed all real taxpayer identifiers from this report
+          required: true

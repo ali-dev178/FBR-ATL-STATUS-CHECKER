@@ -1,13 +1,25 @@
 node_modules/
 dist/
+out/
+
+# Build + OCR leftovers
 eng.traineddata
 captcha_temp.*
-*_results.xlsx
-output.xlsx
-.claude/
-
-# Captcha temp files
 captcha_temp.png
 
-# Input files (user data)
+# User data — never commit real taxpayer records
 Input.xlsx
+output.xlsx
+*_results.xlsx
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Editors and OS
+.claude/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

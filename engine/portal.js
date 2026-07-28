@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { chromiumExecutablePath } = require('./browserPath');
 
 const PORTAL_URL = 'https://iris.fbr.gov.pk/';
 
@@ -16,8 +17,9 @@ async function launchBrowser(headless = true) {
     args: ['--disable-blink-features=AutomationControlled'],
   };
 
-  if (process.env.PLAYWRIGHT_CHROMIUM_PATH) {
-    launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  const execPath = chromiumExecutablePath();
+  if (execPath) {
+    launchOptions.executablePath = execPath;
   }
 
   const browser = await chromium.launch(launchOptions);
