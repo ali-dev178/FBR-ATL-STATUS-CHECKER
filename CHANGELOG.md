@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-07-28
+
+### Fixed
+
+- **The portal's promotional modal stalled every run.** FBR shows a dialog on the landing page (currently the income-tax return deadline). It is an MDB modal that sets `overflow: hidden` on `<body>`, so the app could never scroll to the verification menu — navigation retried in a loop until somebody closed the dialog by hand. Any modal covering the page is now dismissed before the menu is touched, and again on every form reset in case it reappears.
+
+  Dismissal tries the dialog's own close control first, then Escape, and only as a last resort removes the modal and undoes the scroll lock. It behaves identically in background and visible mode, because it works on the DOM rather than the window. The verification form never lives inside one of these modals, which is what makes the last-resort removal safe.
+
 ## [1.0.1] — 2026-07-28
 
 Dependency and security release. No behaviour changes — if v1.0.0 works for you, this is the same app on a newer, patched foundation.
@@ -55,6 +63,7 @@ First public release.
 - The app window referenced an icon that did not exist in the repository.
 - `package.json` declared the ISC license while the repository ships MIT.
 
-[Unreleased]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/releases/tag/v1.0.0

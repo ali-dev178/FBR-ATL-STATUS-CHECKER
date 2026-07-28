@@ -30,12 +30,92 @@ async function launchBrowser(headless = true) {
   return { browser, page };
 }
 
+// FBR puts promotional / help modals on the landing page (filing deadlines and
+// the like). They are MDB modals that set `overflow: hidden` on <body>, which
+// silently breaks everything downstream: scrollIntoViewIfNeeded on the
+// verification menu can never succeed, so navigation retries until a human
+// closes the dialog by hand.
+//
+// Anything that is a full-screen layer or a modal shell. The verification form
+// itself never lives inside one of these, which is what makes the last-resort
+// removal below safe.
+const POPUP_ROOTS = 'mdb-modal-container, .modal.show, .cdk-overlay-backdrop, .modal-backdrop';
+
+// Tried in order — the first is the current close control, the rest are
+// generic so a redesign of the promo does not immediately break this.
+const POPUP_CLOSE_SELECTORS = [
+  '.mainDashboardHelpDlgClose',
+  'mdb-modal-container [class*="DlgClose"]',
+  'mdb-modal-container .btn-close',
+  'mdb-modal-container button.close',
+  '.modal.show .btn-close',
+  '.modal.show button.close',
+  '.modal.show [aria-label="Close" i]',
+  '.modal.show i.fa-times-circle-o',
+  '.modal.show i.fa-times',
+];
+
+async function popupPresent(page) {
+  return page.evaluate((sel) => {
+    for (const el of document.querySelectorAll(sel)) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      if (el.getBoundingClientRect().height > 0) return true;
+    }
+    return false;
+  }, POPUP_ROOTS).catch(() => false);
+}
+
+/**
+ * Close any modal covering the page. Cheap no-op when there is none, so it is
+ * safe to call before every interaction. Works identically headless and
+ * visible, because it operates on the DOM rather than on the window.
+ */
+async function dismissPopups(page) {
+  if (!(await popupPresent(page))) return false;
+
+  // 1. Close it the way a user would.
+  for (const selector of POPUP_CLOSE_SELECTORS) {
+    const control = page.locator(selector).first();
+    const visible = await control.isVisible({ timeout: 500 }).catch(() => false);
+    if (!visible) continue;
+
+    await control.click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(600);
+    if (!(await popupPresent(page))) return true;
+  }
+
+  // 2. Some dialogs only listen for Escape.
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(500);
+  if (!(await popupPresent(page))) return true;
+
+  // 3. Still there — take it out, and undo the scroll lock it left behind.
+  await page.evaluate((sel) => {
+    document.querySelectorAll(sel).forEach((el) => el.remove());
+    document.querySelectorAll('.cdk-global-overlay-wrapper, .cdk-overlay-container').forEach((el) => {
+      if (!el.querySelector('mdb-modal-container, .modal.show')) el.remove();
+    });
+    document.body.classList.remove('modal-open');
+    for (const el of [document.body, document.documentElement]) {
+      if (getComputedStyle(el).overflow === 'hidden') {
+        el.style.setProperty('overflow', 'auto', 'important');
+      }
+    }
+  }, POPUP_ROOTS).catch(() => {});
+
+  return true;
+}
+
 async function navigateToPortal(page, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       await page.goto(PORTAL_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
       // Wait for the page to fully render
       await page.waitForTimeout(3000);
+      // Clear any promo modal before touching the menu — while one is up the
+      // body cannot scroll and the steps below can never succeed.
+      await dismissPopups(page);
       // Wait for "Online Verifications" to appear
       await page.locator('text=Online Verifications').first().waitFor({ state: 'visible', timeout: 30000 });
       await page.locator('text=Online Verifications').first().scrollIntoViewIfNeeded();
@@ -54,6 +134,8 @@ async function navigateToPortal(page, maxRetries = 3) {
 }
 
 async function resetForm(page) {
+  // The portal can raise the modal again on re-entry, so re-check every time.
+  await dismissPopups(page).catch(() => {});
   await page.locator('text=Online Verifications').first().scrollIntoViewIfNeeded().catch(() => {});
   await page.waitForTimeout(400);
   await page.locator('li.pointer >> text=Active Taxpayer List (Income Tax)').first().click().catch(() => {});
@@ -67,6 +149,8 @@ async function ensurePortalReady(page) {
       await navigateToPortal(page);
       return;
     }
+
+    await dismissPopups(page).catch(() => {});
 
     const formVisible = await page.locator('#parameterType').isVisible({ timeout: 3000 }).catch(() => false);
     if (!formVisible) {
@@ -196,4 +280,7 @@ async function verifyOne(page, captchaSolver, value, type) {
   return { success: false, error: 'No result found' };
 }
 
-module.exports = { launchBrowser, navigateToPortal, resetForm, ensurePortalReady, verifyOne, PORTAL_URL };
+module.exports = {
+  launchBrowser, navigateToPortal, resetForm, ensurePortalReady, verifyOne,
+  dismissPopups, popupPresent, PORTAL_URL,
+};

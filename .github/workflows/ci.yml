@@ -51,3 +51,27 @@ jobs:
 
       - name: Confirm the sample workbook can be regenerated
         run: npm run sample
+
+  # The popup-dismissal checks need a real browser, so they are skipped by the
+  # matrix above. Run them once here — that logic guards the portal navigation
+  # and is the first thing to break when FBR changes the site.
+  browser-checks:
+    name: Checks with Chromium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Explicit, because the workflow-level skip only suppresses postinstall.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke checks
+        run: npm run check

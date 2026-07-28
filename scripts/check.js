@@ -166,6 +166,98 @@ function test(name, fn) {
     );
   });
 
+  // ── popup dismissal ─────────────────────────────────────────────────────
+  // Against a stand-in for FBR's promo modal, so the mechanism is covered
+  // without touching the portal. Skipped when Chromium is not installed
+  // (`npx playwright install chromium`), which is the case in CI.
+  const { dismissPopups } = require(path.join(ROOT, 'engine', 'portal'));
+
+  const MODAL_PAGE = (closeButton) => `<!doctype html><meta charset="utf-8">
+    <style>body { overflow: hidden; }</style>
+    <body class="modal-open">
+      <div class="cdk-overlay-container">
+        <div class="cdk-overlay-backdrop mdb-backdrop cdk-overlay-backdrop-showing"
+             style="position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.5)"></div>
+        <div class="cdk-global-overlay-wrapper">
+          <mdb-modal-container class="modal fade show"
+               style="display:block;position:fixed;inset:0;z-index:1055">
+            <div class="modal-content" style="width:600px;height:400px;margin:auto;background:#fff">
+              ${closeButton}
+            </div>
+          </mdb-modal-container>
+        </div>
+      </div>
+      <div id="parameterType">the verification form</div>
+    </body>`;
+
+  let browser = null;
+  try {
+    browser = await require('playwright').chromium.launch();
+  } catch {
+    console.log('  skip  popup dismissal (no Chromium — run: npx playwright install chromium)');
+  }
+
+  if (browser) {
+    const openPage = async (html) => {
+      const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+      await page.setContent(html);
+      return page;
+    };
+    const state = (page) => page.evaluate(() => ({
+      modals: document.querySelectorAll('mdb-modal-container').length,
+      backdrops: document.querySelectorAll('.cdk-overlay-backdrop').length,
+      overflow: getComputedStyle(document.body).overflow,
+      formIntact: !!document.querySelector('#parameterType'),
+    }));
+
+    await test('a promo modal is closed via its own close control', async () => {
+      // Behaves like the real one: closing restores scrolling.
+      const page = await openPage(MODAL_PAGE(`
+        <a class="pointer mainDashboardHelpDlgClose"
+           onclick="document.querySelector('.cdk-overlay-container').remove();
+                    document.body.style.overflow='visible'">
+          <i class="fa fa-times-circle-o"></i>
+        </a>`));
+      try {
+        assert.strictEqual(await dismissPopups(page), true, 'a popup should have been detected');
+        const after = await state(page);
+        assert.strictEqual(after.modals, 0, 'the modal is gone');
+        assert.notStrictEqual(after.overflow, 'hidden', 'scrolling is restored');
+        assert.ok(after.formIntact, 'the verification form survived');
+      } finally {
+        await page.close();
+      }
+    });
+
+    await test('a modal with no working close control is removed anyway', async () => {
+      // The scroll lock is what breaks navigation, so it must clear even when
+      // there is nothing to click and Escape does nothing.
+      const page = await openPage(MODAL_PAGE('<span>no close button here</span>'));
+      try {
+        assert.strictEqual(await dismissPopups(page), true);
+        const after = await state(page);
+        assert.strictEqual(after.modals, 0, 'the modal was removed');
+        assert.strictEqual(after.backdrops, 0, 'the backdrop went with it');
+        assert.notStrictEqual(after.overflow, 'hidden', 'the scroll lock was undone');
+        assert.ok(after.formIntact, 'the verification form survived');
+      } finally {
+        await page.close();
+      }
+    });
+
+    await test('a clean page is left alone', async () => {
+      const page = await openPage('<body><div id="parameterType">form</div></body>');
+      try {
+        assert.strictEqual(await dismissPopups(page), false, 'nothing to dismiss');
+        assert.ok((await state(page)).formIntact);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await browser.close();
+  }
+
   // ── packaging helper ────────────────────────────────────────────────────
   await test('bundled Chromium lookup is inert outside a packaged app', () => {
     assert.strictEqual(resolveBundledChromium(), undefined);
