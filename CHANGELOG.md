@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-07-28
+
+Dependency and security release. No behaviour changes — if v1.0.0 works for you, this is the same app on a newer, patched foundation.
+
 ### Changed
 
 - **Node 20 is now the minimum.** Node 18 has been end-of-life since April 2025 and current Playwright refuses to start on it.
@@ -51,5 +55,6 @@ First public release.
 - The app window referenced an icon that did not exist in the repository.
 - `package.json` declared the ISC license while the repository ships MIT.
 
-[Unreleased]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER/releases/tag/v1.0.0

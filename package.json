@@ -1,6 +1,6 @@
 {
   "name": "fbr-atl-checker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop app that bulk-verifies Active Taxpayer List (ATL) status for CNIC/NTN numbers against Pakistan's FBR IRIS portal, straight from an Excel file.",
   "main": "main.js",
   "homepage": "https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER#readme",
