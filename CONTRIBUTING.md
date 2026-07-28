@@ -6,7 +6,7 @@ The most valuable contribution to this project is usually the least glamorous on
 
 ## Getting set up
 
-Node.js 18 or newer.
+Node.js 20 or newer (Playwright requires it, and 18 is past end of life).
 
 ```bash
 git clone https://github.com/<your-username>/FBR-ATL-STATUS-CHECKER.git

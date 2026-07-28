@@ -157,7 +157,7 @@ If that is a dealbreaker, build it yourself from source — it takes two command
 
 ### Run from source
 
-Requires [Node.js](https://nodejs.org/) 18 or newer and [Git](https://git-scm.com/).
+Requires [Node.js](https://nodejs.org/) 20 or newer and [Git](https://git-scm.com/).
 
 ```bash
 git clone https://github.com/ali-dev178/FBR-ATL-STATUS-CHECKER.git

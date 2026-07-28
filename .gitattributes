@@ -6,7 +6,6 @@
 *.png   binary
 *.ico   binary
 *.icns  binary
-*.docx  binary
 
 # Keep generated assets out of diffs and language stats.
 screenshots/*  linguist-generated=true
