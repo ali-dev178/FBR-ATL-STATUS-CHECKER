@@ -60,11 +60,11 @@ This app does the same thing, row by row, while you do something else. Point it 
 - Results are written by editing the `.xlsx` XML directly, so formatting, styles, column widths, merged cells and hidden columns survive untouched
 - Results are flushed to disk every 10 rows — a crash costs you at most a few lookups
 
-**Captcha handling, no paid API**
+**Captchas solve themselves, with no paid API**
 
-- Tesseract OCR reads the portal's numeric captcha locally
-- Up to 5 attempts, refreshing the captcha between tries
-- If OCR still fails, a popup shows you the image and takes your answer
+- Tesseract OCR reads the portal's numeric captcha locally, on your machine
+- Up to 5 attempts per row, refreshing the captcha between tries
+- On the rare occasion all 5 fail, a popup shows you the image so the run does not stall
 
 **Built for long runs**
 
@@ -108,13 +108,13 @@ This app does the same thing, row by row, while you do something else. Point it 
   <tr>
     <td width="50%">
       <img src="screenshots/03-processing.png" alt="Processing screen"><br>
-      <b>3. Watch it run</b><br>
-      <sub>Progress with ETA, live counters, the row being processed, and a running log.</sub>
+      <b>3. Walk away</b><br>
+      <sub>Captchas are read automatically, row after row. Progress with ETA, live counters, and a running log.</sub>
     </td>
     <td width="50%">
       <img src="screenshots/04-captcha.png" alt="Manual captcha prompt"><br>
-      <b>4. Step in only when needed</b><br>
-      <sub>When OCR gives up, the captcha is shown for manual entry and the run continues.</sub>
+      <b>4. Step in only if OCR misses</b><br>
+      <sub>After five failed reads the captcha is shown so the run never stalls waiting on it.</sub>
     </td>
   </tr>
   <tr>
@@ -126,7 +126,7 @@ This app does the same thing, row by row, while you do something else. Point it 
     <td width="50%">
       <img src="screenshots/06-multiple-tabs.png" alt="Several files processing in tabs"><br>
       <b>Several files at once</b><br>
-      <sub>Each tab runs independently; the dot on each tab shows its state.</sub>
+      <sub>Each tab runs independently, sharing one browser; the dot on each tab shows its state.</sub>
     </td>
   </tr>
 </table>
@@ -195,7 +195,7 @@ The sample contains 25 fictional buyers with placeholder CNIC/NTN values, so the
    - **Background (Faster)** — the browser runs hidden. Use this normally.
    - **Visible** — a Chromium window opens so you can watch. Slower, and closing that window interrupts the run (the app recovers by switching itself back to background mode).
 4. **Start Processing.**
-5. **Answer a captcha if asked.** OCR handles most of them; when it cannot, a popup appears with the image. Type the digits and press Enter.
+5. **Leave it alone.** Captchas are solved automatically as it goes. In the rare case OCR cannot read one after five tries, a popup appears with the image so the run does not stall — type the digits and press Enter.
 6. **When it finishes**, use **Open Output File**, **Retry N/A Rows**, or **Process New File**.
 
 **Handy to know**
@@ -377,7 +377,7 @@ electron-builder can only build a macOS `.dmg` on macOS. The [release workflow](
 | Nothing happens after **Start Processing** | Launching Chromium takes a few seconds — check the log box for `Launching browser...`. The very first captcha also downloads the OCR language model (~10 MB), so a fresh install pauses once before the first result. Running from source, make sure `npx playwright install chromium` has been run. |
 | Stuck on the first captcha, or OCR never succeeds on a fresh install | The English OCR model is fetched from the jsdelivr CDN the first time it is needed. If your network blocks it, every captcha falls through to manual entry. |
 | Every row comes back "Record not exist" | Usually the values themselves — confirm the Read Column is the right one in the Detection Summary. If the sample file also returns real results and yours does not, the values are being read from the wrong column. |
-| Captcha keeps needing manual entry | The portal changed its captcha rendering. Switch to Visible mode to see what it now looks like, and open an issue with a screenshot. |
+| Captchas keep falling through to manual entry | OCR normally handles these. If it suddenly stops, the portal has changed its captcha rendering — switch to Visible mode to see what it now looks like, and open an issue with a screenshot. |
 | "Target page has been closed" | The visible browser window was closed. The app reconnects in background mode automatically and continues. |
 | Results are correct but formatting is gone | Should not happen — results are written into the xlsx XML precisely to avoid it. Please open an issue with the file structure (not the data). |
 | The app opens with tabs from last time and one file is missing | Expected. A tab whose file has moved is restored empty. Pick the file again. |
