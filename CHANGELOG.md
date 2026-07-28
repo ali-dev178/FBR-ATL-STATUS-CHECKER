@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Node 20 is now the minimum.** Node 18 has been end-of-life since April 2025 and current Playwright refuses to start on it.
+- Electron 35 → 43, Playwright 1.58 → 1.62, electron-builder 26.8 → 26.15. Verified by running the app from source, packaging it, and launching the packaged build to confirm it still finds its bundled Chromium.
+- `actions/checkout` and `actions/setup-node` moved from v4 to v7; CI now covers Node 20, 22 and 24.
+
 ## [1.0.0] — 2026-07-28
 
 First public release.
