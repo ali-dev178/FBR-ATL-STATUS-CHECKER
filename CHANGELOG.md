@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **macOS 13 (Ventura) or later is now required.** Electron 44 dropped macOS 12, so the Mac builds no longer open on Monterey.
+- Electron 43 → 44, jszip 3.10.1 → 3.10.2. Verified by running the app from source, packaging it, and launching the packaged build to confirm it still finds its bundled Chromium.
+
+### Security
+
+- Electron 44.9.3 fixes the 12 published Electron advisories that affect 43.2.0, five of them rated high.
+
 ## [1.0.2] — 2026-07-28
 
 ### Fixed

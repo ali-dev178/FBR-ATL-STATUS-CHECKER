@@ -142,8 +142,8 @@ Grab the latest build for your platform from the [Releases page](https://github.
 | Platform | File | Notes |
 |----------|------|-------|
 | Windows | `FBR-ATL-Status-Checker-<version>-win-x64.exe` | Portable — no installer, just run it |
-| macOS (Apple silicon) | `FBR-ATL-Status-Checker-<version>-mac-arm64.dmg` | Drag to Applications |
-| macOS (Intel) | `FBR-ATL-Status-Checker-<version>-mac-x64.dmg` | Drag to Applications |
+| macOS (Apple silicon) | `FBR-ATL-Status-Checker-<version>-mac-arm64.dmg` | Drag to Applications — needs macOS 13 Ventura or later |
+| macOS (Intel) | `FBR-ATL-Status-Checker-<version>-mac-x64.dmg` | Drag to Applications — needs macOS 13 Ventura or later |
 | Linux | `FBR-ATL-Status-Checker-<version>-linux-x86_64.AppImage` | `chmod +x` then run — community-supported, lightly tested |
 
 Chromium is bundled inside the build, so there is nothing else to install. That is also why the downloads are large — 210–320 MB depending on platform, expanding to roughly 800 MB on disk.
