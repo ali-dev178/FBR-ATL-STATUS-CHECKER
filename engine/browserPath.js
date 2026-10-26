@@ -11,6 +11,8 @@ const path = require('path');
  *
  * The directory layout differs per platform, and macOS has both an arm64 and
  * an x64 variant, so every known location is probed rather than assumed.
+ * On macOS, current Playwright ships Google Chrome for Testing.app where older
+ * releases shipped Chromium.app, so both names are probed.
  */
 const CANDIDATES = {
   win32: [
@@ -18,6 +20,8 @@ const CANDIDATES = {
     ['chrome-win', 'chrome.exe'],
   ],
   darwin: [
+    ['chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'],
+    ['chrome-mac-x64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'],
     ['chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'],
     ['chrome-mac-arm64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'],
     ['chrome-mac-x64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'],
