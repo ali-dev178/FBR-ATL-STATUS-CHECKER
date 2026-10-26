@@ -263,6 +263,30 @@ function test(name, fn) {
     assert.strictEqual(resolveBundledChromium(), undefined);
   });
 
+  await test('bundled Chromium lookup finds the layout Playwright installs', () => {
+    // Playwright reports where its Chromium lives on this OS even when it is
+    // not installed. Recreating that layout in a fake resources folder means a
+    // rename in a Playwright update (macOS went from Chromium.app to Google
+    // Chrome for Testing.app) fails here instead of in a packaged app.
+    const expected = require('playwright').chromium.executablePath();
+    const parts = expected.split(path.sep);
+    const revision = parts.findLastIndex((part) => part.startsWith('chromium-'));
+    assert.ok(revision >= 0, `no chromium-<revision> folder in ${expected}`);
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fbr-atl-check-'));
+    const exe = path.join(dir, 'browsers', ...parts.slice(revision));
+    const previous = process.resourcesPath;
+    try {
+      fs.mkdirSync(path.dirname(exe), { recursive: true });
+      fs.writeFileSync(exe, '');
+      process.resourcesPath = dir;
+      assert.strictEqual(resolveBundledChromium(), exe, `expected ${parts.slice(revision).join('/')}`);
+    } finally {
+      process.resourcesPath = previous;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed === 0 ? 0 : 1);
 })().catch((err) => {

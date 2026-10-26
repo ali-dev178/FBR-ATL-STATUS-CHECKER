@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **macOS 13 (Ventura) or later is now required.** Electron 44 dropped macOS 12, so the Mac builds no longer open on Monterey.
 - Electron 43 → 44, jszip 3.10.1 → 3.10.2. Verified by running the app from source, packaging it, and launching the packaged build to confirm it still finds its bundled Chromium.
 
+### Fixed
+
+- **Mac builds could not find their bundled browser.** Playwright installs it on macOS as `Google Chrome for Testing.app`, but the app only looked for `Chromium.app`, so background mode — the default — had no browser to start. Both names are now checked, and `npm run check` recreates Playwright's own layout on each CI platform, so a future rename fails CI instead of the packaged app.
+
 ### Security
 
 - Electron 44.9.3 fixes the 12 published Electron advisories that affect 43.2.0, five of them rated high.
